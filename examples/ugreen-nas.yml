@@ -1,0 +1,26 @@
+# Ugreen NAS (UGOS) — tested setup.
+# UGOS mounts USB disks under /mnt/@usb (TransBack reuses those mounts) and keeps the kernel
+# drivers in /usr/lib/modules. Replace /volume1/nextcloud_data with your Nextcloud data folder.
+services:
+  transback:
+    image: ghcr.io/gabrielmaltais/transback:latest
+    container_name: transback
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "3000:3000"
+    environment:
+      TB_LANG: en
+      # TB_PASSWORD: change-me
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /dev:/dev
+      - /usr/lib/modules:/lib/modules:ro
+      - type: bind
+        source: /mnt/@usb
+        target: /mnt/usb
+        read_only: true
+        bind:
+          propagation: rslave
+      - /volume1/docker/transback:/app/data
+      - /volume1/nextcloud_data:/volume1/nextcloud_data

@@ -1,0 +1,30 @@
+# TransBack — generic example. See examples/ for Ugreen, Synology, Nextcloud AIO and linuxserver.io.
+# After starting it, open http://<server>:3000 → Settings › Diagnostics: it tells you exactly
+# which volume is missing, if any.
+services:
+  transback:
+    image: ghcr.io/gabrielmaltais/transback:latest
+    container_name: transback
+    restart: unless-stopped
+    # Needed to mount USB disks (APFS through FUSE, HFS/HFS+, exFAT, NTFS…) and load kernel drivers.
+    # The Docker socket below already gives root-equivalent access to the host: see SECURITY.md.
+    privileged: true
+    ports:
+      - "3000:3000"
+    environment:
+      TB_LANG: en                 # language of the task logs: en | fr
+      # TB_PASSWORD: change-me    # recommended: ask for a password
+      # NEXTCLOUD_CONTAINER: nextcloud   # only if several Nextcloud containers run on this host
+    volumes:
+      # Talk to the Nextcloud container (detection, occ files:scan / groupfolders:scan)
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Hot-plugged disks and the host kernel drivers (hfs, hfsplus, exfat…)
+      - /dev:/dev
+      - /lib/modules:/lib/modules:ro
+      # TransBack's own data (queue, history, settings)
+      - ./transback-data:/app/data
+      # Your Nextcloud data folder, mounted at the SAME path as on the host.
+      # Use the host path shown in Settings › Diagnostics.
+      - /srv/nextcloud/data:/srv/nextcloud/data
+      # Without Nextcloud (or in addition): plain folders become destinations
+      # - /srv/archives:/destinations/Archives

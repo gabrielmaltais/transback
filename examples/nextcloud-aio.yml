@@ -1,0 +1,25 @@
+# Nextcloud All-in-One — NOT TESTED, feedback welcome.
+# AIO keeps the data in the Docker volume "nextcloud_aio_nextcloud_data" (or in the folder set
+# with NEXTCLOUD_DATADIR). TransBack finds the "nextcloud-aio-nextcloud" container on its own.
+services:
+  transback:
+    image: ghcr.io/gabrielmaltais/transback:latest
+    container_name: transback
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "3000:3000"
+    environment:
+      TB_LANG: en
+      # TB_PASSWORD: change-me
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /dev:/dev
+      - /lib/modules:/lib/modules:ro
+      - ./transback-data:/app/data
+      # If you set NEXTCLOUD_DATADIR, mount that host folder instead.
+      - nextcloud_aio_nextcloud_data:/mnt/ncdata
+
+volumes:
+  nextcloud_aio_nextcloud_data:
+    external: true

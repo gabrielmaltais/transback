@@ -1,0 +1,26 @@
+# Synology DSM (Container Manager) — NOT TESTED, feedback welcome.
+# DSM mounts USB disks under /volumeUSB<n>/usbshare; mounting /volumeUSB1 lets TransBack reuse
+# them. Some DSM kernels do not ship the hfs/hfsplus drivers: the Diagnostics tab will tell you.
+services:
+  transback:
+    image: ghcr.io/gabrielmaltais/transback:latest
+    container_name: transback
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "3000:3000"
+    environment:
+      TB_LANG: en
+      # TB_PASSWORD: change-me
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /dev:/dev
+      - /lib/modules:/lib/modules:ro
+      - type: bind
+        source: /volumeUSB1
+        target: /volumeUSB1
+        read_only: true
+        bind:
+          propagation: rslave
+      - /volume1/docker/transback:/app/data
+      - /volume1/nextcloud/data:/volume1/nextcloud/data

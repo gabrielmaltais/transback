@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TransBack</title>
+  <meta name="description" content="Copy USB disks (Mac, Windows, Linux) into Nextcloud — simple, safe, traceable." />
+  <link rel="stylesheet" href="style.css?v=4.0" />
+</head>
+<body>
+  <!-- ── Fond animé ───────────────────────────────────────────────── -->
+  <div class="bg-orbs" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <!-- ── Connexion (si TB_PASSWORD est défini) ───────────────────── -->
+  <div id="login-screen" class="login-screen" hidden>
+    <form id="login-form" class="card login-card">
+      <h1 class="card-title" data-i18n="login.title">Sign in to TransBack</h1>
+      <div class="field-group">
+        <label class="field-label" for="login-password" data-i18n="login.password">Password</label>
+        <input id="login-password" type="password" class="field-input" autocomplete="current-password" required />
+        <p class="field-hint login-error" id="login-error" hidden data-i18n="login.invalid">Wrong password.</p>
+      </div>
+      <div class="card-actions">
+        <button type="submit" class="btn btn-primary" data-i18n="login.submit">Sign in</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="app-layout">
+  <div class="app-shell">
+    <!-- ── En-tête ──────────────────────────────────────────────── -->
+    <header class="app-header">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="url(#grad-logo)"/>
+          <path d="M8 22 L16 10 L24 22" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M11 18 L21 18" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="grad-logo" x1="0" y1="0" x2="32" y2="32">
+              <stop offset="0%" stop-color="#4f8ef7"/>
+              <stop offset="100%" stop-color="#22d3a5"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="logo-text">TransBack</span>
+      </div>
+      <div class="header-actions">
+        <button id="btn-lang" class="btn btn-secondary btn-sm" data-i18n-title="header.language" title="Language">FR</button>
+        <button id="btn-settings" class="btn btn-secondary btn-sm" data-i18n="header.settings">⚙️ Settings</button>
+        <button id="btn-logout" class="btn btn-secondary btn-sm" hidden data-i18n="header.logout">Sign out</button>
+        <div class="header-badge" id="status-badge">
+          <span class="badge-dot"></span>
+          <span class="badge-label" data-i18n="status.idle">Ready</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Avertissement si l'environnement n'est pas prêt (voir Paramètres › Diagnostic) -->
+    <div id="setup-banner" class="setup-banner" hidden>
+      <span id="setup-banner-text"></span>
+      <button id="btn-setup-banner" class="btn btn-sm btn-secondary" data-i18n="banner.open">Open diagnostics</button>
+    </div>
+
+    <main class="main-content">
+      <!-- ── Indicateur d'étapes ──────────────────────────────────── -->
+      <nav class="steps-nav" data-i18n-aria="steps.aria" aria-label="Transfer steps">
+        <div class="step-item active" id="nav-step-1" data-step="1">
+          <div class="step-circle">
+            <span class="step-num">1</span>
+            <svg class="step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <span class="step-label" data-i18n="steps.source">Source</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" id="nav-step-2" data-step="2">
+          <div class="step-circle">
+            <span class="step-num">2</span>
+            <svg class="step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <span class="step-label" data-i18n="steps.destination">Destination</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" id="nav-step-3" data-step="3">
+          <div class="step-circle">
+            <span class="step-num">3</span>
+            <svg class="step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <span class="step-label" data-i18n="steps.transfer">Transfer</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" id="nav-step-4" data-step="4">
+          <div class="step-circle">
+            <span class="step-num">4</span>
+            <svg class="step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <span class="step-label" data-i18n="steps.result">Result</span>
+        </div>
+      </nav>
+
+      <!-- ════ ÉTAPE 0 — Prévisualisation d'une tâche en attente ════ -->
+      <section class="step-panel" id="panel-step-0" aria-labelledby="title-step-0" hidden>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3" stroke-linecap="round"/><circle cx="12" cy="12" r="10"/></svg>
+          </div>
+          <h2 id="title-step-0" class="card-title" data-i18n="queued.title">Queued task</h2>
+          <p class="card-subtitle" data-i18n="queued.subtitle">This task is in the queue and will start automatically when the previous one finishes.</p>
+
+          <div class="target-info-box" style="margin-bottom: 16px;">
+            <div class="tib-label" data-i18n="queued.folders">Selected folders</div>
+            <div id="task-preview-folders" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
+          </div>
+
+          <div class="target-info-box">
+            <div class="tib-label" data-i18n="queued.destination">Destination</div>
+            <div class="tib-path" id="task-preview-destination" style="margin-top:6px;">—</div>
+          </div>
+
+          <div class="card-actions" style="margin-top:24px; justify-content: flex-end;">
+            <button id="btn-task-preview-delete" class="btn btn-secondary btn-danger" data-i18n="queued.delete">🗑 Delete this task</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ ÉTAPE 1 — Sélection des sources ════ -->
+      <section class="step-panel active" id="panel-step-1" aria-labelledby="title-step-1">
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h16M4 12h10m-6 6h12" stroke-linecap="round"/><rect x="14" y="10" width="6" height="8" rx="1"/><path d="M17 10V7" stroke-linecap="round"/></svg>
+          </div>
+          <h1 id="title-step-1" class="card-title" data-i18n="source.title">Select sources</h1>
+          <p class="card-subtitle" data-i18n="source.subtitle">Choose a disk, browse its folders and tick the ones to transfer, at any level.</p>
+
+          <div class="field-group">
+            <div class="disk-toolbar">
+              <span class="field-label" style="margin-bottom:0;" data-i18n="source.disks">Connected disks</span>
+              <button id="btn-rescan-usb" class="btn btn-secondary btn-sm btn-rescan" data-i18n="source.detect">🔄 Detect disks</button>
+            </div>
+            <div id="disk-list" class="disk-list" aria-live="polite"></div>
+            <p class="field-hint" id="scan-hint" data-i18n="source.searching">Looking for disks…</p>
+          </div>
+
+          <div id="folder-selection-area" hidden>
+            <nav id="breadcrumb" class="breadcrumb" data-i18n-aria="source.breadcrumbAria" aria-label="Location on the disk"></nav>
+            <div class="folder-toolbar">
+              <p class="field-hint" id="folder-hint"></p>
+              <div class="folder-toolbar-actions">
+                <button id="btn-select-current" class="btn btn-sm btn-ghost" hidden></button>
+                <button id="btn-select-all" class="btn btn-sm btn-ghost" hidden></button>
+              </div>
+            </div>
+            <div class="browser-list" id="folder-grid" role="group" data-i18n-aria="source.foldersAria" aria-label="Folders on the disk"></div>
+          </div>
+
+          <div id="selection-panel" class="selection-panel" hidden>
+            <div class="selection-panel-head">
+              <span class="selection-badge" id="selection-count-label"></span>
+              <button id="btn-clear-selection" class="btn btn-sm btn-ghost" data-i18n="source.clearSelection">Remove all</button>
+            </div>
+            <ul id="selection-list" class="selection-list"></ul>
+          </div>
+
+          <div class="card-actions">
+            <button id="btn-step1-next" class="btn btn-primary" disabled>
+              <span data-i18n="common.next">Next</span>
+              <svg viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ ÉTAPE 2 — Destination ════ -->
+      <section class="step-panel" id="panel-step-2" aria-labelledby="title-step-2" hidden>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke-linecap="round"/></svg>
+          </div>
+          <h2 id="title-step-2" class="card-title" data-i18n="dest.title">Choose the destination</h2>
+          <p class="card-subtitle" data-i18n="dest.subtitle">Where should the folders go in Nextcloud?</p>
+
+          <div class="field-group">
+            <label class="field-label" for="select-target" data-i18n="dest.target">Nextcloud folder</label>
+            <div class="select-wrapper">
+              <select id="select-target" class="field-select"></select>
+              <svg class="select-arrow" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <p class="field-hint" id="target-hint"></p>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="input-target-subpath"><span data-i18n="dest.subPath">Inside this folder</span> <span class="field-label-optional" data-i18n="common.optional">(optional)</span></label>
+            <input id="input-target-subpath" type="text" class="field-input" data-i18n-placeholder="dest.subPathPlaceholder" placeholder="e.g. Archives/2024" autocomplete="off" spellcheck="false" />
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="input-subfolder"><span data-i18n="dest.parent">New parent folder</span> <span class="field-label-optional" data-i18n="common.optional">(optional)</span></label>
+            <input id="input-subfolder" type="text" class="field-input" data-i18n-placeholder="dest.parentPlaceholder" placeholder="e.g. Seagate disk 2024 (leave empty to copy directly)" autocomplete="off" spellcheck="false" />
+            <p class="field-hint" data-i18n="dest.parentHint">If filled in, every selected folder is copied into this new folder.</p>
+          </div>
+
+          <div class="dest-summary" id="dest-summary"></div>
+
+          <div class="card-actions">
+            <button id="btn-step2-back" class="btn btn-secondary" data-i18n="common.back">Back</button>
+            <button id="btn-step2-launch" class="btn btn-primary" disabled>
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 12V4l8 4-8 4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+              <span data-i18n="dest.launch">Add to the queue</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ ÉTAPE 3 — Progression ════ -->
+      <section class="step-panel" id="panel-step-3" aria-labelledby="title-step-3" hidden>
+        <div class="card card-wide">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+            <h2 id="title-step-3" class="card-title" style="margin-bottom: 0;" data-i18n="progress.title">Transfer in progress</h2>
+            <div class="transfer-actions" style="display: flex; gap: 12px; justify-content: flex-end;">
+              <button id="btn-pause" class="btn btn-secondary" data-i18n="progress.pause">⏸️ Pause</button>
+              <button id="btn-resume" class="btn btn-primary" style="display: none;" data-i18n="progress.resume">▶️ Resume</button>
+              <button id="btn-cancel" class="btn btn-secondary btn-danger" data-i18n="progress.cancel">🛑 Cancel</button>
+            </div>
+          </div>
+
+          <div class="pipeline" id="pipeline" role="list">
+            <div class="pipeline-phase" id="phase-transferring" role="listitem" data-phase="transferring">
+              <div class="phase-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12h16M13 6l6 6-6 6" stroke-linecap="round"/></svg>
+              </div>
+              <div class="phase-text">
+                <div class="phase-name" data-i18n="phase.copy">Copy</div>
+                <div class="phase-desc" data-i18n="phase.copyDesc">rsync</div>
+              </div>
+            </div>
+            <div class="pipeline-arrow" aria-hidden="true"></div>
+            <div class="pipeline-phase" id="phase-permissions" role="listitem" data-phase="permissions">
+              <div class="phase-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="phase-text">
+                <div class="phase-name" data-i18n="phase.finalize">Finalizing</div>
+                <div class="phase-desc" data-i18n="phase.finalizeDesc">file names</div>
+              </div>
+            </div>
+            <div class="pipeline-arrow" aria-hidden="true"></div>
+            <div class="pipeline-phase" id="phase-indexing" role="listitem" data-phase="indexing">
+              <div class="phase-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" stroke-linecap="round"/></svg>
+              </div>
+              <div class="phase-text">
+                <div class="phase-name" data-i18n="phase.index">Indexing</div>
+                <div class="phase-desc" data-i18n="phase.indexDesc">occ scan</div>
+              </div>
+            </div>
+            <div class="pipeline-arrow" aria-hidden="true"></div>
+            <div class="pipeline-phase" id="phase-done" role="listitem" data-phase="done">
+              <div class="phase-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12l5 5L20 7" stroke-linecap="round"/></svg>
+              </div>
+              <div class="phase-text">
+                <div class="phase-name" data-i18n="phase.done">Done</div>
+                <div class="phase-desc" data-i18n="phase.doneDesc">In Nextcloud</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="transfer-layout">
+            <div class="transfer-tree-container">
+              <div class="console-header">
+                <span class="console-title" data-i18n="progress.folders">Folders</span>
+              </div>
+              <div class="transfer-tree-body" id="transfer-tree"></div>
+            </div>
+
+            <div class="transfer-main-container">
+              <div class="progress-block">
+                <div class="progress-header">
+                  <div class="progress-pct" id="progress-pct">0%</div>
+                  <div class="progress-speed" id="progress-speed">—</div>
+                </div>
+                <div class="progress-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progress-track">
+                  <div class="progress-bar" id="progress-bar"></div>
+                </div>
+                <div class="progress-file" id="progress-file"></div>
+              </div>
+
+              <div class="console-container">
+                <div class="console-header">
+                  <span class="console-dot red"></span>
+                  <span class="console-dot yellow"></span>
+                  <span class="console-dot green"></span>
+                  <span class="console-title" data-i18n="progress.log">Log</span>
+                </div>
+                <div class="console-body" id="console-body" aria-live="polite" aria-relevant="additions"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ ÉTAPE 4 — Résultat ════ -->
+      <section class="step-panel" id="panel-step-4" aria-labelledby="title-step-4" hidden>
+        <div class="card">
+          <div class="result-icon" id="result-icon"></div>
+          <h2 id="title-step-4" class="card-title">—</h2>
+          <p class="card-subtitle" id="result-subtitle">—</p>
+          <div class="result-summary" id="result-summary"></div>
+          <div class="card-actions">
+            <button id="btn-new-transfer" class="btn btn-primary">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M3 8a5 5 0 109.9-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 3l0 4-4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <span data-i18n="result.newTransfer">New transfer</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ ÉTAPE 5 — Détail d'une tâche terminée ════ -->
+      <section class="step-panel" id="panel-step-5" aria-labelledby="title-step-5" hidden>
+        <div class="card card-wide">
+          <div style="display:flex; align-items:flex-start; gap:16px; margin-bottom:24px; flex-wrap:wrap;">
+            <div id="hist-status-icon" style="font-size:2.5rem; line-height:1;"></div>
+            <div style="flex:1; min-width:0;">
+              <h2 id="title-step-5" class="card-title" style="margin-bottom:4px;"></h2>
+              <p id="hist-subtitle" class="card-subtitle" style="margin:0;"></p>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button id="btn-hist-rescan" class="btn btn-secondary btn-rescan" style="white-space:nowrap;" data-i18n="hist.rescan">🔄 Re-scan these folders</button>
+              <button id="btn-hist-delete" class="btn btn-secondary btn-danger" style="white-space:nowrap;" data-i18n="hist.delete">🗑 Delete</button>
+            </div>
+          </div>
+
+          <div class="hist-stats" id="hist-stats"></div>
+
+          <div id="hist-highlights" hidden style="margin-bottom:20px;">
+            <div class="hist-highlights-title" data-i18n="hist.highlights">⚠️ Important items</div>
+            <div id="hist-highlights-list" class="hist-highlights-list"></div>
+          </div>
+
+          <div class="console-container">
+            <div class="console-header">
+              <span class="console-dot red"></span>
+              <span class="console-dot yellow"></span>
+              <span class="console-dot green"></span>
+              <span class="console-title" data-i18n="progress.log">Log</span>
+              <div style="margin-left:auto;display:flex;gap:4px;flex-wrap:wrap;">
+                <button class="btn btn-sm btn-ghost hist-filter active" data-filter="all" data-i18n="hist.filterAll">All</button>
+                <button class="btn btn-sm btn-ghost hist-filter" data-filter="error" data-i18n="hist.filterErrors">❌ Errors</button>
+                <button class="btn btn-sm btn-ghost hist-filter" data-filter="warning" data-i18n="hist.filterWarnings">⚠️ Warnings</button>
+                <button class="btn btn-sm btn-ghost hist-filter" data-filter="success" data-i18n="hist.filterSuccess">✅ Success</button>
+              </div>
+            </div>
+            <div class="console-body" id="hist-log-body" aria-live="off"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer" data-i18n="footer">TransBack • USB to Nextcloud ingestion</footer>
+  </div>
+
+  <!-- Onglet pour rouvrir le panneau des transferts (collé au bord droit) -->
+  <button id="btn-show-queue" class="queue-tab" type="button" aria-controls="queue-sidebar" aria-expanded="false" data-i18n-title="queue.show" title="Show transfers">
+    <span class="queue-tab-arrow" aria-hidden="true">‹</span>
+    <span class="queue-tab-label" data-i18n="queue.title">Transfers</span>
+    <span id="show-queue-count" class="queue-tab-count" hidden>0</span>
+  </button>
+  <div id="queue-backdrop" class="queue-backdrop" aria-hidden="true"></div>
+
+  <aside class="queue-sidebar" id="queue-sidebar" data-i18n-aria="queue.title" aria-label="Transfers">
+    <div class="queue-header">
+      <h3 style="margin:0; font-size: 1.1rem; color: var(--text-primary);" data-i18n="queue.title">Transfers</h3>
+      <div class="queue-header-actions" style="display: flex; gap: 8px;">
+        <button id="btn-add-task" class="btn btn-primary" style="padding: 4px 8px; font-size: 0.8rem; height: 32px;" data-i18n="queue.newTask">+ New task</button>
+        <button id="btn-refresh-queue" class="btn btn-secondary" style="padding: 6px; font-size: 0.8rem;" data-i18n-title="queue.refresh" title="Refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button id="btn-toggle-queue" class="btn btn-secondary" style="padding: 6px; font-size: 0.8rem;" data-i18n-title="queue.hide" data-i18n-aria="queue.hide" title="Hide transfers" aria-label="Hide transfers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="queue-section">
+      <div class="queue-section-header">
+        <span class="queue-section-title" data-i18n="queue.active">Running / upcoming</span>
+        <span class="queue-section-count" id="queue-active-count">0</span>
+      </div>
+      <div id="queue-active-list"></div>
+    </div>
+
+    <div class="queue-section">
+      <div class="queue-section-header">
+        <span class="queue-section-title" data-i18n="queue.history">History</span>
+        <span class="queue-section-count" id="queue-history-count">0</span>
+      </div>
+      <div id="queue-history-list"></div>
+    </div>
+
+    <details class="queue-section scan-details-section" id="scan-details-panel">
+      <summary class="queue-section-header" style="cursor: pointer; user-select: none;">
+        <span class="queue-section-title" data-i18n="scan.title">⚙️ Maintenance &amp; indexing</span>
+        <span id="scan-badge" class="queue-section-count scan-badge" style="display:none;" data-i18n="scan.running">Running</span>
+        <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: auto;">▼</span>
+      </summary>
+      <div class="scan-panel-body">
+        <div class="scan-info">
+          <div class="scan-info-title" data-i18n="scan.autoTitle">ℹ️ Automatic indexing</div>
+          <div data-i18n="scan.autoText">TransBack indexes new copied folders automatically.</div>
+          <div class="scan-info-note" data-i18n="scan.fullNote">The full scan re-indexes the whole default destination and can take hours on large folders. Use it only if older files are missing in Nextcloud.</div>
+        </div>
+        <button id="btn-global-scan" class="btn btn-secondary btn-sm scan-btn" data-i18n="scan.full">🔄 Run a full scan</button>
+        <div id="global-scan-status" class="global-scan-status" style="display: none;">
+          <div id="global-scan-msg" style="word-break: break-word;"></div>
+          <div class="progress-track" style="height: 4px; margin-top: 6px;">
+            <div id="global-scan-bar" class="progress-bar" style="width: 100%; animation: pulse-bar 1.5s ease-in-out infinite;"></div>
+          </div>
+          <button id="btn-cancel-scan" class="btn btn-secondary btn-sm btn-danger scan-btn" style="margin-top:8px;" data-i18n="scan.cancel">🛑 Cancel indexing</button>
+        </div>
+      </div>
+    </details>
+  </aside>
+  </div>
+
+  <!-- ── Paramètres ───────────────────────────────────────────────── -->
+  <dialog id="settings-modal" class="modal modal-wide">
+    <div class="modal-content card">
+      <h2 class="card-title" style="margin-bottom: 8px;" data-i18n="settings.title">Settings</h2>
+      <div class="settings-tabs" role="tablist">
+        <button class="settings-tab active" data-tab="diag" role="tab" data-i18n="settings.tabDiag">Diagnostics</button>
+        <button class="settings-tab" data-tab="options" role="tab" data-i18n="settings.tabOptions">Options</button>
+      </div>
+
+      <div class="settings-pane" data-pane="diag">
+        <p class="field-hint" data-i18n="settings.diagHint">TransBack detects your installation automatically. Red items must be fixed for transfers to work.</p>
+        <ul id="diag-list" class="diag-list"></ul>
+        <button id="btn-rediagnose" class="btn btn-secondary btn-sm" data-i18n="settings.rediagnose">🔄 Detect again</button>
+      </div>
+
+      <div class="settings-pane" data-pane="options" hidden>
+        <div class="field-group">
+          <label class="field-label" for="settings-target" data-i18n="settings.defaultTarget">Default destination</label>
+          <div class="select-wrapper">
+            <select id="settings-target" class="field-select"></select>
+            <svg class="select-arrow" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <input id="settings-target-subpath" type="text" class="field-input" style="margin-top:8px;" data-i18n-placeholder="dest.subPathPlaceholder" placeholder="e.g. Archives/2024" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="settings-grid">
+          <div class="field-group">
+            <label class="field-label" for="settings-dir-mode" data-i18n="settings.dirMode">Folder permissions</label>
+            <input id="settings-dir-mode" type="text" class="field-input" inputmode="numeric" maxlength="3" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="settings-file-mode" data-i18n="settings.fileMode">File permissions</label>
+            <input id="settings-file-mode" type="text" class="field-input" inputmode="numeric" maxlength="3" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="settings-bwlimit" data-i18n="settings.bwlimit">Speed limit (KB/s, 0 = none)</label>
+            <input id="settings-bwlimit" type="number" min="0" step="1" class="field-input" />
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="checkbox-row"><input id="settings-check-space" type="checkbox" /> <span data-i18n="settings.checkSpace">Check free space before each transfer</span></label>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="settings-webhook" data-i18n="settings.webhook">Notification webhook (optional)</label>
+          <input id="settings-webhook" type="url" class="field-input" placeholder="https://ntfy.sh/my-topic" autocomplete="off" spellcheck="false" />
+          <p class="field-hint" data-i18n="settings.webhookHint">Called at the end of every task (JSON with "text" and "content": works with ntfy, Discord, Slack, n8n…).</p>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="settings-excludes" data-i18n="settings.excludes">Excluded files (one pattern per line)</label>
+          <textarea id="settings-excludes" class="field-input field-textarea" rows="6" spellcheck="false"></textarea>
+        </div>
+        <p class="field-hint settings-error" id="settings-error" hidden></p>
+        <div class="card-actions" style="justify-content: flex-end;">
+          <button id="btn-save-settings" class="btn btn-primary" data-i18n="common.save">Save</button>
+        </div>
+      </div>
+
+      <div class="card-actions" style="margin-top: 16px; justify-content: flex-end;">
+        <button id="btn-close-settings" class="btn btn-secondary" data-i18n="common.close">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="i18n.js?v=4.0"></script>
+  <script src="app.js?v=4.0"></script>
+</body>
+</html>

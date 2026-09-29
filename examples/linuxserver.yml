@@ -1,0 +1,20 @@
+# linuxserver.io Nextcloud image (lscr.io/linuxserver/nextcloud) — tested with a throwaway install.
+# TransBack detects occ in /app/www/public and the PUID/PGID owner of the files by itself.
+services:
+  transback:
+    image: ghcr.io/gabrielmaltais/transback:latest
+    container_name: transback
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "3000:3000"
+    environment:
+      TB_LANG: en
+      # TB_PASSWORD: change-me
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /dev:/dev
+      - /lib/modules:/lib/modules:ro
+      - ./transback-data:/app/data
+      # The folder you mounted as /data in the Nextcloud container
+      - /srv/nextcloud/data:/srv/nextcloud/data

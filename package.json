@@ -1,0 +1,17 @@
+{
+  "name": "transback",
+  "version": "3.0.0",
+  "description": "Copy USB disks (Mac, Windows, Linux) into Nextcloud from a web page",
+  "license": "MIT",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

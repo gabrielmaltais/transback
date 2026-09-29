@@ -1,0 +1,36 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Copy the content of Settings › Diagnostics (remove anything private).
+      render: text
+  - type: input
+    id: setup
+    attributes:
+      label: Setup
+      description: Host (NAS model / distribution), Nextcloud image and version, TransBack version.
+      placeholder: "Synology DS920+, nextcloud:30-apache, TransBack 3.0.0"
+    validations:
+      required: true
+  - type: input
+    id: disk
+    attributes:
+      label: Disk format (if disk-related)
+      placeholder: "APFS, HFS+, exFAT…"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Task log and/or `docker logs transback` (remove anything private).
+      render: text
